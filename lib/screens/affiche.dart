@@ -18,7 +18,7 @@ late  AnimationController _animationController;
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: Duration(seconds: 10),
+      duration:  const Duration(seconds: 10),
     );
 
     _animation = Tween<double>(begin: 0, end: 1).animate(_animationController)
