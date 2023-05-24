@@ -9,4 +9,5 @@ class Weather {
     required this.temperature,
     required this.weatherCondition,
   });
+
 }

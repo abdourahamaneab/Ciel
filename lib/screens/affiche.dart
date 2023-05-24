@@ -1,139 +1,217 @@
+
+import 'dart:async';
+import 'package:ciel/models/weather.dart';
+import 'package:ciel/services/weather_api.dart';
 import 'package:flutter/material.dart';
 
-class ProgressPage extends StatefulWidget {
+class Affiche extends StatefulWidget {
   @override
-  _ProgressPageState createState() => _ProgressPageState();
+  _Affiche createState() => _Affiche();
 }
 
-class _ProgressPageState extends State<ProgressPage> with SingleTickerProviderStateMixin {
-late  AnimationController _animationController;
-  late Animation<double> _animation;
+class _Affiche extends State<Affiche> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _progressAnimation;
+  int _messageIndex = 0;
+  bool _animationComplete = false;
+  late Future<List<Weather>> weatherData;
 
-  String _progressMessage = 'Nous téléchargeons les données...';
-  bool _isLoading = true;
-  bool _showResults = false;
+  List<String> _messages = [
+    'Nous téléchargeons les données...',
+    'C\'est presque fini...',
+    'Plus que quelques secondes avant d\'avoir le résultat...',
+  ];
+  late Timer _timer;
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration:  const Duration(seconds: 10),
+      duration: Duration(seconds: 25),
     );
 
-    _animation = Tween<double>(begin: 0, end: 1).animate(_animationController)
+    _progressAnimation = Tween<double>(begin: 0, end: 100).animate(_animationController)
       ..addListener(() {
-        setState(() {
-          if (_animationController.status == AnimationStatus.completed) {
-            _isLoading = false;
-            _showResults = true;
-            _progressMessage = 'Téléchargement terminé';
-          } else if (_animationController.status == AnimationStatus.forward) {
-            final progress = (_animation.value * 100).toInt();
-            _progressMessage = 'C\'est presque fini... $progress%';
-          }
-        });
+        setState(() {});
+      })
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          setState(() {
+            _animationComplete = true;
+          });
+        }
       });
+
+    weatherData = fetchWeatherForCities(['Paris', 'Niamey', 'Dakar', 'Quebec', 'Moscou']);
+
+    _startAnimation();
+
+    _timer = Timer.periodic(Duration(seconds: 5), (timer) {
+      if (!_animationComplete) {
+        setState(() {
+          _messageIndex = (_messageIndex + 1) % _messages.length;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _timer.cancel();
     super.dispose();
   }
 
-  void startAnimation() {
-    setState(() {
-      _isLoading = true;
-      _showResults = false;
-      _progressMessage = 'Nous téléchargeons les données...';
-    });
+  void _startAnimation() {
+    _animationComplete = false;
     _animationController.reset();
     _animationController.forward();
+  }
+
+  Future<List<Weather>> fetchWeatherForCities(List<String> cityNames) {
+    WeatherApi weatherApi = WeatherApi();
+    return Future.delayed(Duration(seconds: 21), () => weatherApi.fetchWeatherForCities(cityNames));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Progress Page'),
+        title: const Text(
+          'Ciel',
+          textAlign: TextAlign.left,
+          style: TextStyle(
+            fontSize: 24,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (!_showResults)
-              CircularProgressIndicator(
-                value: _isLoading ? _animation.value : null,
-              ),
-            SizedBox(height: 20),
-            Text(
-              _progressMessage,
-              style: TextStyle(fontSize: 18),
-            ),
-            SizedBox(height: 20),
-            if (_showResults)
-              Column(
+        heightFactor: 1.5,
+        child: FutureBuilder<List<Weather>>(
+          future: weatherData,
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              final weatherList = snapshot.data!;
+              return Column(
                 children: [
-                  ResultTable(),
-                  SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: startAnimation,
-                    child: Text('Recommencer'),
+                  ListView.builder(
+                    padding: const EdgeInsets.all(8),
+                    shrinkWrap: true,
+                    itemCount: weatherList.length,
+                    itemBuilder: (context, index) {
+                      final weather = weatherList[index];
+                      return ListTile(
+                        title: Text(
+                          weather.cityName,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            color: Colors.indigo,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Text(
+                          weather.temperature.toString() + '°C',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            color: Colors.blue,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        trailing: Text(
+                          weather.weatherCondition,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            color: Colors.blue,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        minLeadingWidth: 5,
+                        minVerticalPadding: 20,
+                      );
+                    },
                   ),
+
+                  Text(
+                    _animationComplete ? 'Terminé' : _messages[_messageIndex],
+                    style: TextStyle(fontSize: 17 ,
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+
+
+                  ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  Text(
+                  '${_progressAnimation.value.toInt()}%',
+                  style: TextStyle(fontSize: 20),
+                  ),
+                  const SizedBox(height: 20),
+
+                  LinearProgressIndicator(
+                    value: _progressAnimation.value / 100,
+                    backgroundColor: Colors.grey[200],
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  ElevatedButton(
+                    onPressed: () {
+                      weatherData.then((weatherList) {
+                        weatherList.forEach((weather) {
+                          print('${weather.cityName} - ${weather.temperature} - ${weather.weatherCondition}');
+                        });
+                      });
+                      _startAnimation();
+                      setState(() {
+                        weatherData = fetchWeatherForCities(['Paris', 'Niamey', 'Dakar', 'Quebec', 'Moscou']);
+                      });
+                    },
+                    child: Icon(Icons.refresh),
+                  ),
+
+
+
                 ],
-              ),
-          ],
+              );
+            } else if (snapshot.hasError) {
+              return Text('Erreur lors de la récupération des données météorologiques');
+            } else {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 20),
+
+                  const SizedBox(height: 20),
+                  Text(
+                    _animationComplete ? 'Terminé' : _messages[_messageIndex],
+                    style: TextStyle(fontSize: 17),
+
+                  ),
+                  const SizedBox(height: 20),
+                  LinearProgressIndicator(
+                    value: _progressAnimation.value / 100,
+                    backgroundColor: Colors.grey[200],
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    '${_progressAnimation.value.toInt()}%',
+                    style: TextStyle(fontSize: 20),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              );
+            }
+          },
         ),
       ),
     );
   }
 }
-
-class ResultTable extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Table(
-        border: TableBorder.all(),
-        children: [
-    TableRow(
-    children: [
-    TableCell(child: Text('Ville')),
-    TableCell(child: Text('Température')),
-    TableCell(child: Text('Couverture nuageuse')),
-    ],
-    ),
-    TableRow(
-    children: [
-    TableCell(child: Text('Rennes')),
-    TableCell(child: Text('20°C')),
-    TableCell(child: Icon(Icons.cloud)),
-    ],
-    ),
-    TableRow(
-    children: [
-    TableCell(child: Text('Paris')),
-    TableCell(child: Text('18°C')),
-    TableCell(child: Icon(Icons.cloud)),
-    ],
-    ),
-    TableRow(
-    children: [
-    TableCell(child: Text('Nantes')),
-    TableCell(child: Text('21°C')),
-    TableCell(child: Icon(Icons.cloud)),
-    ],
-    ),
-    TableRow(
-    children: [
-    TableCell(child: Text('Bordeaux')),
-    TableCell(child: Text('22°C')),
-    TableCell(child: Icon(Icons.cloud)),
-    ],
-    )
-    ],
-    );
-
-}
-
-  }

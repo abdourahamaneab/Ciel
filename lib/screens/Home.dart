@@ -1,6 +1,7 @@
 
 import 'package:ciel/screens/affiche.dart';
 import 'package:flutter/material.dart';
+import 'package:ciel/services/weather_api.dart';
 
 class  Home extends StatelessWidget {
   @override
@@ -36,7 +37,8 @@ class  Home extends StatelessWidget {
 
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => ProgressPage()),
+                  MaterialPageRoute(builder: (context) => Affiche()
+                ),
                 );
               },
               child: const Text( 'Commencer',style: TextStyle(fontSize: 18),
@@ -47,7 +49,7 @@ class  Home extends StatelessWidget {
             const SizedBox(height: 20),
 
 
-            const  Text('cliquez sur le bouton pour connaitre la méteo',
+            const  Text('cliquez sur le bouton pour connaitre la méteo journalière',
               style: TextStyle(
                 fontSize: 15,
                 color: Colors.white,
